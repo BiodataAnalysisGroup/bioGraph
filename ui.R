@@ -53,9 +53,13 @@ shinyUI(
                             
                             mainPanel(
                               tabsetPanel(
-                                tabPanel("Data",
-                                         # numericInput("idInput","Insert the id",0), 
-                                         fluidRow(column(12, br(), dataTableOutput("dataset")))),
+                                tabPanel(
+                                  "Data",
+                                  # numericInput("idInput","Insert the id",0), 
+                                  conditionalPanel(condition = "input.files",
+                                                   fluidRow(column(12, br(), dataTableOutput("dataset"))),
+                                                   fluidRow(column(4, downloadButton("downloadData", "Download"))))
+                                ),
                                 
                                 tabPanel("Graph",
                                          # column(2, numericInput("nodeSelect", "Insert an id", 0)),
@@ -86,7 +90,7 @@ shinyUI(
                                  column(4, 
                                         fluidRow(column(12, h3("Filters"))),
                                         fluidRow(column(12, uiOutput("selectbox1"))),
-                                        fluidRow(column(12, uiOutput("textbox1"))),
+                                        uiOutput("textbox1"),
                                         fluidRow(
                                           column(6, actionButton("includeButton","Include")),
                                           column(6, actionButton("excludeButton","Exclude"))
@@ -99,7 +103,8 @@ shinyUI(
                                  column(8, 
                                         fluidRow(column(12, br())),
                                         fluidRow(column(12, tableOutput("filtertable"))),
-                                        fluidRow(column(12, verbatimTextOutput("Indexes"))))))
+                                        fluidRow(column(12, verbatimTextOutput("Indexes")))))
+                        )
                
                ########### MST ########### 
                # tabPanel("MST",

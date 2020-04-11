@@ -10,7 +10,8 @@ shinyServer(function(input,output,session){
                            sim = NULL, 
                            uni = NULL,
                            uniframe = NULL,
-                           fulldata = NULL)
+                           fulldata = NULL,
+                           createGraph = TRUE)
   
   shinyFileChoose(input, "files", roots = c(root = '.'), filetypes = c('', "txt", "csv"))
   
@@ -85,8 +86,7 @@ shinyServer(function(input,output,session){
       seq = seq[seq.temp]
       data = data[seq.temp, ]
     }
-    
-    values$indexes = 1:length(seq)
+  
     values$fulldata = data
     
     sim = stringdistances(seq, algo = input$simSelect)
@@ -94,8 +94,13 @@ shinyServer(function(input,output,session){
     values$sim = sim
     shinyalert("Distances Calculated", type = "success")
   })
+  
+  observeEvent(input$graphButton,{
+    values$indexes = 1:nrow(values$fulldata)
+    values$createGraph = !(values$createGraph)
+  })
 
-  observeEvent(input$graphButton, {
+  observeEvent(values$createGraph, {
     if (is.null(values$sim )){ return() }
     
     templist = list(values$fulldata[values$indexes,],
@@ -152,7 +157,7 @@ shinyServer(function(input,output,session){
     V(ig)$color.background = colors[visualiseGenes(data = V(ig)$Sample_ID)$label]
     
     V(ig)$color.border = V(ig)$color.background
-    ###### NP ######3
+    ###### NP ######
     V(ig)$title = paste("Sequence frequence cluster_id: ", V(ig)$freq_cluster_id)
     
     # V(ig)$title = paste("Sequence frequence cluster_id: ", V(ig)$freq_cluster_id,
@@ -223,67 +228,12 @@ shinyServer(function(input,output,session){
     # updateSelectInput(session, "clusterSelect", selected=" ")
     # mstValues$edges = NULL
   })
- 
-  output$dataset <- DT::renderDataTable({
-    temp = values$fulldata
-    if(is.null(temp)) { return() }
-    
-    # if(input$idInput != 0){
-    #   temp = temp[input$idInput == rownames(temp),]
-    # }
-    
-    temp
-  })
-
+  
   observeEvent(values$ig,{
     output$graphMeasure <- renderText(paste("Order:", gorder(values$ig),
                                             " Size:", ecount(values$ig)))
   }, ignoreInit=TRUE)
   
-  output$adj <- DT::renderDataTable({
-    
-    igtemp = values$ig
-    x = adjacent_vertices(igtemp, 1:gorder(igtemp))
-    
-    myFun <- function(x,ig){
-      x = as.numeric(x)
-      x = V(ig)$label[x]
-      neigh = paste(x,collapse=",")
-      
-      return (neigh)
-    }
-    
-    data.frame("Neighbours" = unlist(lapply(x, myFun, igtemp)),
-               row.names = V(igtemp)$label)
-  })
-
-  output$uni <- renderDataTable({
-    values$uniframe
-  })
-
-  output$network <- renderVisNetwork({
-    xx = input$visGraph
-    igtemp = isolate(values$ig)
-    if(is.null(igtemp)) { return() }
-    
-    coords = layout_with_stress(igtemp)
-    
-    # there was a "value" variable 
-    data_vertices = get.data.frame(igtemp, what = c("vertices"))[,c("label", "color.border", "color.background", "id")]
-    data_edges = as_data_frame(igtemp, what = c("edges"))
-    
-    graph = visNetwork(cbind(data_vertices, "title" = paste(V(igtemp)$title, "<br>Component ", isolate(values$forest))), data_edges) %>%
-            visEdges(color = list(color = "black", highlight = "red"), labelHighlightBold = FALSE) %>%
-            visOptions(nodesIdSelection = list("useLabels" = TRUE), highlightNearest = TRUE) %>%
-            #visPhysics(solver="repulsion") %>%
-            visInteraction(multiselect = TRUE) %>%
-            visIgraphLayout(layout = "layout.norm", layoutMatrix = coords, smooth = FALSE, physics = FALSE) %>%
-            #visIgraphLayout(layout = "layout_with_fr",smooth=FALSE,physics = FALSE) %>%
-            visLegend(addNodes = data.frame()) 
-    
-    graph
-  })
-
   observeEvent(input$nodeSelect,{
     req(values$ig, input$nodeSelect != "")
     
@@ -292,46 +242,10 @@ shinyServer(function(input,output,session){
       if(length(x) == 0){ return() }
       
       visNetworkProxy("network") %>%
-      visSelectNodes(id = x)
+        visSelectNodes(id = x)
     }
   }, ignoreInit = TRUE)
   
-  output$selectbox1 <- renderUI({
-    req(values$fulldata)
-    tempdata = values$fulldata
-    
-    # choice = list()
-    # for(l in colnames(tempdata)){
-    #   choice = c(choice, l)
-    # }
-    
-    choice = as.list(colnames(tempdata))
-    
-    names(choice) = colnames(tempdata)
-    
-    selectInput("select1", label = "Select a column", choices = choice)
-  })
-  
-  output$textbox1 <- renderUI({
-    tempdata = values$fulldata
-    req(values$fulldata)
-    selected = input$select1
-    if (is.null(selected)) {return()}
-    if (is.numeric(tempdata[,selected])){
-      sliderInput("slider1", label = "", 
-                  min = 0, 
-                  max = 1, 
-                  value = c(0, 1),
-                  step = 0.005)
-    } else {
-      textInput("text1", "")
-    }
-  }) 
-
-  xxchange <- reactive({
-    paste(input$excludeButton, input$includeButton)
-  })
-
   observeEvent(xxchange(), {
     if(input$excludeButton[[1]] == 0 & input$includeButton[[1]] == 0) {return()}
     
@@ -343,32 +257,32 @@ shinyServer(function(input,output,session){
     } else {
       ie = "I"
     }
-                 
+    
     selected = input$select1
     if(is.numeric(tempdata[,selected])){ 
-       x = data.frame("Columns" = selected,
-                      "Keys" = paste0(input$slider1[1], ",", input$slider1[2]),
-                      "I/E" = ie)
+      x = data.frame("Columns" = selected,
+                     "Keys" = paste0(input$minSelected, ",", input$maxSelected),
+                     "I/E" = ie)
     } else {
-       x = data.frame("Columns" = selected,
-                      "Keys" = input$text1,
-                      "I/E" = ie)
+      x = data.frame("Columns" = selected,
+                     "Keys" = input$text1,
+                     "I/E" = ie)
     }
-                 
-                 
+    
+    
     values$filterdf <- rbind(values$filterdf,x)
     
   })
-
+  
   observeEvent(input$ResetButton,{
     values$filterdf = data.frame(Columns = character(),
                                  Keys = character(),
                                  "I/E" = character())
   })
-
+  
   observeEvent(input$FilterButton,{
     if(nrow(values$filterdf) == 0) { return() }
-    tempdata = isolate(values$fulldata)
+    tempdata = values$fulldata
     filterg = values$filterdf
     exc = filterg[filterg[,3] == "E", 1:2]
     inc = filterg[filterg[,3] == "I", 1:2]
@@ -404,12 +318,115 @@ shinyServer(function(input,output,session){
       values$indexes = setdiff(1:nrow(values$fulldata), values$indexes)
     }
     
+    values$createGraph = !(values$createGraph)
+    
   }, ignoreInit = TRUE)  
   
   observeEvent(values$indexes, {
     values$uni = NULL 
   }, ignoreInit = TRUE)
   
+  observeEvent(input$getNeigh,{
+    visNetworkProxy("network") %>% visGetSelectedNodes()
+  }, ignoreInit = TRUE)
+ 
+  output$dataset <- DT::renderDataTable({
+    temp = values$fulldata
+    # if(is.null(temp)) { return() }
+    
+    # if(input$idInput != 0){
+    #   temp = temp[input$idInput == rownames(temp),]
+    # }
+    
+    temp
+  })
+  
+  output$adj <- DT::renderDataTable({
+    
+    igtemp = values$ig
+    x = adjacent_vertices(igtemp, 1:gorder(igtemp))
+    
+    myFun <- function(x,ig){
+      x = as.numeric(x)
+      x = V(ig)$label[x]
+      neigh = paste(x,collapse=",")
+      
+      return (neigh)
+    }
+    
+    data.frame("Neighbours" = unlist(lapply(x, myFun, igtemp)),
+               row.names = V(igtemp)$label)
+  })
+
+  output$uni <- renderDataTable({
+    values$uniframe
+  })
+
+  output$network <- renderVisNetwork({
+    xx = input$visGraph
+    igtemp = isolate(values$ig)
+    if(is.null(igtemp)) { return() }
+    
+    coords = layout_with_stress(igtemp)
+    
+    # there was a "value" variable 
+    data_vertices = get.data.frame(igtemp, what = c("vertices"))[,c("label", "color.border", "color.background", "id")]
+    data_edges = get.data.frame(igtemp, what = c("edges"))
+    
+    graph = visNetwork(cbind(data_vertices, "title" = paste(V(igtemp)$title, "<br>Component ", isolate(values$forest))), data_edges) %>%
+            visEdges(color = list(color = "black", highlight = "red"), labelHighlightBold = FALSE) %>%
+            visOptions(nodesIdSelection = list("useLabels" = TRUE), highlightNearest = TRUE) %>%
+            #visPhysics(solver="repulsion") %>%
+            visInteraction(multiselect = TRUE) %>%
+            visIgraphLayout(layout = "layout.norm", layoutMatrix = coords, smooth = FALSE, physics = FALSE) %>%
+            #visIgraphLayout(layout = "layout_with_fr",smooth=FALSE,physics = FALSE) %>%
+            visLegend(addNodes = data.frame()) 
+    
+    graph
+  })
+
+  output$selectbox1 <- renderUI({
+    req(values$fulldata)
+    tempdata = values$fulldata
+    
+    # choice = list()
+    # for(l in colnames(tempdata)){
+    #   choice = c(choice, l)
+    # }
+    
+    choice = as.list(colnames(tempdata))
+    
+    names(choice) = colnames(tempdata)
+    
+    selectInput("select1", label = "Select a column", choices = choice)
+  })
+  
+  output$textbox1 <- renderUI({
+    tempdata = values$fulldata
+    req(values$fulldata)
+    selected = input$select1
+    if (is.null(selected)) {return()}
+    if (is.numeric(tempdata[,selected])){
+      # sliderInput("slider1", label = "", 
+      #             min = 0, 
+      #             max = 100, 
+      #             value = c(0, 100),
+      #             step = 0.1)
+      fluidRow(
+        column(6, numericInput("minSelected", "Min value", value = min(tempdata[,selected]), min = 0, max = 100, step = 0.005)),
+        column(6, numericInput("maxSelected", "Max value", value = max(tempdata[,selected]), min = 0, max = 100, step = 0.005))
+      )
+    } else {
+      fluidRow(
+        column(12, textInput("text1", ""))
+      )
+    }
+  }) 
+
+  xxchange <- reactive({
+    paste(input$excludeButton, input$includeButton)
+  })
+
   output$Indexes <- renderText({
     if(is.null(values$indexes)) {return()}
     values$indexes
@@ -419,26 +436,7 @@ shinyServer(function(input,output,session){
     if(is.null(values$filterdf)){return()}
     values$filterdf 
   })
-
-  output$downloadGraph <- downloadHandler(
-    filename = function() {
-      paste("graph.zip")
-    },
-    content = function(file) {
-      fileName = paste("edges.csv")
-      write.table(as_data_frame(values$ig)[,c("from","to","weight")], fileName, row.names = FALSE)
-      files = fileName
-      fileName = paste("vertices.csv")
-      write.table(V(values$ig)$label, fileName, row.names = FALSE)
-      files = c(fileName,files)
-      zip(file,files)
-    }
-  )
   
-  observeEvent(input$getNeigh,{
-    visNetworkProxy("network") %>% visGetSelectedNodes()
-  }, ignoreInit = TRUE)
- 
   output$neigh <- DT::renderDataTable({
     selected = input$network_selectedNodes
     isolate({
@@ -449,6 +447,42 @@ shinyServer(function(input,output,session){
       
     })
   })
+
+  output$downloadGraph <- downloadHandler(
+    filename = function() {
+      paste("graph.zip")
+    },
+    content = function(file) {
+      fileName = "edges.txt"
+      write.table(get.data.frame(values$ig)[,c("from", "to", "weight")], fileName, 
+                  row.names = FALSE, sep = "\t", quote = FALSE)
+      files = fileName
+      
+      fileName = "vertices.txt"
+      write.table(V(values$ig)$label, fileName,
+                  row.names = FALSE, sep = "\t", quote = FALSE)
+      
+      files = c(fileName, files)
+      
+      folder = zip::zipr(file, files)
+      
+      file.remove(c("edges.txt", "vertices.txt"))
+      
+      return(folder)
+    },
+    contentType = "application/zip"
+  )
+  
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("data.txt")
+    },
+    content = function(file) {
+      write.table(values$fulldata, file, row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  
+  
   
   ############## MST ##############
 

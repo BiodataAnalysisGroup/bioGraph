@@ -61,7 +61,7 @@ includeInGraph <- function(data, x){
     if(!is.numeric(data[,l[1]])){
       tempdata = data[data[,l[1]] %in% l[2:length(l)],]
     } else {
-      tempdata = data[(data[,l[1]]>l[2] & data[,l[1]]<l[3] ),]
+      tempdata = data[which(data[,l[1]] >= l[2] & data[,l[1]] <= l[3]),]
     } 
     
     data = tempdata  

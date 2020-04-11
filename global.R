@@ -21,6 +21,7 @@ library(gplots)
 library(shinyFiles)
 library(shinyBS)
 library(stringr)
+library(zip)
 
 
 # source('stringdistances.R', echo=TRUE)
