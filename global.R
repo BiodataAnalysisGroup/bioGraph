@@ -22,6 +22,7 @@ library(shinyFiles)
 library(shinyBS)
 library(stringr)
 library(zip)
+library(Biostrings)
 
 
 # source('stringdistances.R', echo=TRUE)

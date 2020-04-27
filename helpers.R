@@ -1,9 +1,14 @@
 ############ stringdistances ############
 
 stringdistances <- function(seq, algo){
-  sim = stringdistmatrix(seq, method = algo, useBytes = FALSE, q = 2)
+  if(algo == "BLOSUM80"){
+    sim = stringDist(seq, method = "substitutionMatrix", substitutionMatrix = "BLOSUM80")
+    sim = sim + abs(min(sim))
+  }else{
+    sim = stringdistmatrix(seq, method = algo, useBytes = FALSE, q = 2)
+  }
   
-  if(algo %in% c("dl", "lv", "osa", "lcs", "hamming", "qgram")){
+  if(algo %in% c("dl", "lv", "osa", "lcs", "hamming", "qgram", "BLOSUM80")){
     if(algo %in% c("lcs","qgram")){
       funn = sum
     } else {
@@ -15,7 +20,7 @@ stringdistances <- function(seq, algo){
     sim = sim / normal
   }
   
-  return (sim)
+  return(sim)
 }
 
 ############ visualiseGenes ############ 
@@ -61,7 +66,7 @@ includeInGraph <- function(data, x){
     if(!is.numeric(data[,l[1]])){
       tempdata = data[data[,l[1]] %in% l[2:length(l)],]
     } else {
-      tempdata = data[which(data[,l[1]] >= l[2] & data[,l[1]] <= l[3]),]
+      tempdata = data[which(data[,l[1]] >= as.numeric(l[2]) & data[,l[1]] <= as.numeric(l[3])),]
     } 
     
     data = tempdata  
@@ -243,4 +248,60 @@ MST <- function(x, algorithm = "prim"){
   overall = as.data.frame(overall)
   colnames(overall) = c("from", "to", "weight")
   return(overall)
+}
+
+############ nucleotide position ############ 
+
+letter.prob <- function(seq.vector){
+  seq = as.character(seq.vector)
+  seq = str_split(seq, "", simplify = TRUE)
+  
+  letters = unique(as.vector(seq))
+  
+  prob.matrix = matrix(data = 0, 
+                       nrow = ncol(seq),
+                       ncol = length(letters))
+  
+  prob.matrix = as.data.frame(prob.matrix)
+  colnames(prob.matrix) = letters
+  
+  seq = apply(seq, 2, table)
+  seq = lapply(seq, as.data.frame)
+  
+  for(i in 1:nrow(prob.matrix)){
+    prob.matrix[i, as.character(seq[[i]]$Var1)] = seq[[i]]$Freq
+  }
+  
+  prob.matrix = prob.matrix / length(seq.vector)
+  
+  seq = as.character(seq.vector)
+  seq = str_split(seq, "", simplify = TRUE)
+  
+  one.run <- function(seq.row, prob.matrix){
+    total = 1
+    
+    for(i in 1:length(seq.row)){
+      total = total * prob.matrix[i, seq.row[i]]
+    }
+    
+    return(data.table(Seq = paste(seq.row, collapse = ""),
+                      Prob = total))
+  }
+  
+  seq.prob = apply(seq, 1, one.run, prob.matrix)
+  seq.prob = rbindlist(seq.prob)
+  
+  one.run <- function(index, prob.matrix){
+    prob.matrix$Prob = abs(prob.matrix[index, ]$Prob - prob.matrix$Prob)
+    prob.matrix = as.data.table(t(prob.matrix$Prob))
+    
+    return(prob.matrix)
+  }
+  
+  seq.prob = lapply(1:nrow(seq.prob), one.run, seq.prob)
+  seq.prob = rbindlist(seq.prob)
+  
+  colnames(seq.prob) = as.character(1:ncol(seq.prob))
+  
+  return(seq.prob)
 }

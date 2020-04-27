@@ -5,6 +5,7 @@ shinyServer(function(input,output,session){
   values <- reactiveValues(flagEX = 0,
                            filterdf = data.frame(Columns = character(), Keys = character(), "I/E" = character()),
                            ig = NULL,
+                           sub.ig = NULL,
                            indexes = c(),
                            forest = c(),
                            sim = NULL, 
@@ -101,8 +102,8 @@ shinyServer(function(input,output,session){
   })
 
   observeEvent(values$createGraph, {
-    if (is.null(values$sim )){ return() }
-    
+    if (is.null(values$sim)){ return() }
+
     templist = list(values$fulldata[values$indexes,],
                     as.matrix(values$sim)[values$indexes, values$indexes])
     
@@ -132,7 +133,6 @@ shinyServer(function(input,output,session){
       templist[[2]] = templist[[2]][ind, ind]
     }
     
-    
     templist[[2]][templist[[2]] > input$slider] = 0
     ig = graph.adjacency(templist[[2]], mode = "undirected", weighted = TRUE)
     
@@ -140,37 +140,35 @@ shinyServer(function(input,output,session){
     
     ####### NP #####
     # V(ig)$value = log10(V(ig)$freq_cluster_id / 100)
-    
-    myFun <- function(x){
-      if (length(x)==0){
-        return (NA)
-      } else {
-        return (x[1])
-      }
-    }
-    
-    ###### NP #######
+    #
+    # myFun <- function(x){
+    #   if (length(x)==0){
+    #     return (NA)
+    #   } else {
+    #     return (x[1])
+    #   }
+    # }
+    #
     # V(ig)$V.GENE = as.character(unlist(lapply(strsplit(as.character(V(ig)$Summary.V.GENE.and.allele), "*", fixed=TRUE), myFun)))
     # V(ig)$J.GENE = as.character(unlist(lapply(strsplit(as.character(V(ig)$Summary.J.GENE.and.allele), "*", fixed=TRUE), myFun)))
     # V(ig)$D.GENE = as.character(unlist(lapply(strsplit(as.character(V(ig)$Summary.D.GENE.and.allele), "*", fixed=TRUE), myFun)))
 
-    V(ig)$color.background = colors[visualiseGenes(data = V(ig)$Sample_ID)$label]
-    
+    V(ig)$color.background =  colors[visualiseGenes(data = V(ig)$Sample_ID)$label]
     V(ig)$color.border = V(ig)$color.background
     ###### NP ######
-    V(ig)$title = paste("Sequence frequence cluster_id: ", V(ig)$freq_cluster_id)
+    # V(ig)$title = paste("Sequence frequence cluster_id: ", V(ig)$freq_cluster_id)
     
     # V(ig)$title = paste("Sequence frequence cluster_id: ", V(ig)$freq_cluster_id,
     #                     "<br>V.Gene: ", V(ig)$Summary.V.GENE.and.allele,
     #                     "<br>CDR3: ", V(ig)$Summary.AA.JUNCTION)
     
-    m = (1 - E(ig)$weight - min(1 - E(ig)$weight)) / (max(1 - E(ig)$weight) - min(1 - E(ig)$weight))
+    # m = (1 - E(ig)$weight - min(1 - E(ig)$weight)) / (max(1 - E(ig)$weight) - min(1 - E(ig)$weight))
 
-    E(ig)$width = m * 2.5
+    # E(ig)$width = m * 2.5
     E(ig)$title = paste("Edge weight: ", E(ig)$weight)
+    
     V(ig)$id = 1:gorder(ig)
     V(ig)$label = rownames(templist[[1]])
-    
     forest = components(ig, mode="weak")
     
     x = forest[[1]]
@@ -208,10 +206,14 @@ shinyServer(function(input,output,session){
   observeEvent(input$componentButton, {
     if(is.null(values$ig)) { return() }
     
-    values$ig = induced_subgraph(values$ig, which(values$forest == input$componentSelect), impl = "auto")
-    V(values$ig)$id = 1:gorder(values$ig)
-    values$forest = c()
-    values$forest[1:gorder(values$ig)] = 1
+    print(values$forest)
+    print(input$componentSelect)
+    
+    
+    values$sub.ig = induced_subgraph(values$ig, which(values$forest == input$componentSelect), impl = "auto")
+    V(values$sub.ig)$id = 1:gorder(values$sub.ig)
+    # values$forest = c()
+    # values$forest[1:gorder(values$ig)] = 1
     # updateSelectInput(session, "componentSelect", choices = list("1" = 1), selected = 1)
     # clusterValues$member = NULL
     # clusterValues$membership = vector(mode = "list", length = 7)
@@ -229,16 +231,16 @@ shinyServer(function(input,output,session){
     # mstValues$edges = NULL
   })
   
-  observeEvent(values$ig,{
-    output$graphMeasure <- renderText(paste("Order:", gorder(values$ig),
-                                            " Size:", ecount(values$ig)))
+  observeEvent(values$sub.ig,{
+    output$graphMeasure <- renderText(paste("Order:", gorder(values$sub.ig),
+                                            " Size:", ecount(values$sub.ig)))
   }, ignoreInit=TRUE)
   
   observeEvent(input$nodeSelect,{
-    req(values$ig, input$nodeSelect != "")
+    req(values$sub.ig, input$nodeSelect != "")
     
     if (input$nodeSelect != 0){
-      x = which(V(values$ig)$label == input$nodeSelect)
+      x = which(V(values$sub.ig)$label == input$nodeSelect)
       if(length(x) == 0){ return() }
       
       visNetworkProxy("network") %>%
@@ -302,6 +304,7 @@ shinyServer(function(input,output,session){
     }  
     
     pointers1 = includeInGraph(tempdata, filterinc)
+    
     if(length(pointers1) != 0){
       pointers2 = excludeFromGraph(tempdata[pointers1,], filterexc)
       
@@ -343,7 +346,7 @@ shinyServer(function(input,output,session){
   
   output$adj <- DT::renderDataTable({
     
-    igtemp = values$ig
+    igtemp = values$sub.ig
     x = adjacent_vertices(igtemp, 1:gorder(igtemp))
     
     myFun <- function(x,ig){
@@ -364,7 +367,7 @@ shinyServer(function(input,output,session){
 
   output$network <- renderVisNetwork({
     xx = input$visGraph
-    igtemp = isolate(values$ig)
+    igtemp = values$sub.ig
     if(is.null(igtemp)) { return() }
     
     coords = layout_with_stress(igtemp)
@@ -373,7 +376,7 @@ shinyServer(function(input,output,session){
     data_vertices = get.data.frame(igtemp, what = c("vertices"))[,c("label", "color.border", "color.background", "id")]
     data_edges = get.data.frame(igtemp, what = c("edges"))
     
-    graph = visNetwork(cbind(data_vertices, "title" = paste(V(igtemp)$title, "<br>Component ", isolate(values$forest))), data_edges) %>%
+    graph = visNetwork(data_vertices, data_edges) %>%
             visEdges(color = list(color = "black", highlight = "red"), labelHighlightBold = FALSE) %>%
             visOptions(nodesIdSelection = list("useLabels" = TRUE), highlightNearest = TRUE) %>%
             #visPhysics(solver="repulsion") %>%
@@ -440,8 +443,8 @@ shinyServer(function(input,output,session){
   output$neigh <- DT::renderDataTable({
     selected = input$network_selectedNodes
     isolate({
-      adj = neighbors(values$ig, selected)
-      nlist = vertex.attributes(graph = values$ig, index = adj)
+      adj = neighbors(values$sub.ig, selected)
+      nlist = vertex.attributes(graph = values$sub.ig, index = adj)
       DT::datatable(as.data.frame(nlist, row.names = nlist[["label"]]), 
                     options = list(scrollX = TRUE))
       
@@ -454,12 +457,12 @@ shinyServer(function(input,output,session){
     },
     content = function(file) {
       fileName = "edges.txt"
-      write.table(get.data.frame(values$ig)[,c("from", "to", "weight")], fileName, 
+      write.table(get.data.frame(values$sub.ig)[,c("from", "to", "weight")], fileName, 
                   row.names = FALSE, sep = "\t", quote = FALSE)
       files = fileName
       
       fileName = "vertices.txt"
-      write.table(V(values$ig)$label, fileName,
+      write.table(V(values$sub.ig)$label, fileName,
                   row.names = FALSE, sep = "\t", quote = FALSE)
       
       files = c(fileName, files)
