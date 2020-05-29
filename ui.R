@@ -38,7 +38,8 @@ shinyUI(
                                                                     "Cosine" = "cosine",
                                                                     "Jaccard" = "jaccard",
                                                                     "Jaro Winklar" = "jw",
-                                                                    "BLOSUM80" = "BLOSUM80"),
+                                                                    "BLOSUM80" = "BLOSUM80",
+                                                                    "Letter probability" = "LetterProb"),
                                                      selected = "lv", width = 350),
                                      useShinyalert(),
                                      actionButton("simButton","Calculate distance matrix"), br(), br()),
@@ -47,10 +48,13 @@ shinyUI(
                                                      min = 0, max = 1, value = 0.25, step=0.001),
                                      
                                      checkboxInput(inputId = "clusterId", label = "Unique sequence-clusterID combination", value = FALSE),
-                                     actionButton("graphButton", "Create Graph"), br(), br()),
+                                     actionButton("graphButton", "Create Graph"), br(), br())
+                              # ,
+                              # 
+                              # column(12, selectInput("componentSelect", "Components", choices = list("no components"= "")),
+                              #        actionButton("componentButton", "Select a component"))
                               
-                              column(12, selectInput("componentSelect", "Components", choices = list("no components"= "")),
-                                     actionButton("componentButton", "Select a component")))),
+                              )),
                             
                             mainPanel(
                               tabsetPanel(
@@ -60,6 +64,14 @@ shinyUI(
                                   conditionalPanel(condition = "input.files",
                                                    fluidRow(column(12, br(), dataTableOutput("dataset"))),
                                                    fluidRow(column(4, downloadButton("downloadData", "Download"))))
+                                ),
+                                
+                                tabPanel(
+                                  "Filtered Data",
+                                  # numericInput("idInput","Insert the id",0), 
+                                  conditionalPanel(condition = "input.files",
+                                                   fluidRow(column(12, br(), dataTableOutput("filteredDataset"))),
+                                                   fluidRow(column(4, downloadButton("downloadFilteredData", "Download"))))
                                 ),
                                 
                                 tabPanel("Graph",
@@ -91,20 +103,20 @@ shinyUI(
                                  column(4, 
                                         fluidRow(column(12, h3("Filters"))),
                                         fluidRow(column(12, uiOutput("selectbox1"))),
-                                        uiOutput("textbox1"),
-                                        fluidRow(
-                                          column(6, actionButton("includeButton","Include")),
-                                          column(6, actionButton("excludeButton","Exclude"))
-                                        ),
-                                        fluidRow(
-                                          column(6, br(), actionButton("FilterButton","Filter")),
-                                          column(4, br(), actionButton("ResetButton","Reset")),
-                                          column(2, br(), checkboxInput("ReverseButton","Reverse Filters"))
-                                        )),
+                                        fluidRow(uiOutput("textbox1")),
+                                        fluidRow(column(2, actionButton("includeButton", label = "", icon = icon("plus", class = NULL, lib = "font-awesome"))),
+                                        column(2, actionButton("excludeButton", label = "", icon = icon("minus", class = NULL, lib = "font-awesome"))),
+                                        
+                                        column(3, actionButton("FilterButton","Filter")),
+                                        column(3, actionButton("ResetButton","Reset")),
+                                        column(2, checkboxInput("ReverseButton","Reverse Filters"))),
+                                      ),
                                  column(8, 
                                         fluidRow(column(12, br())),
                                         fluidRow(column(12, tableOutput("filtertable"))),
-                                        fluidRow(column(12, verbatimTextOutput("Indexes")))))
+                                        fluidRow(column(12, verbatimTextOutput("Indexes"))))),
+                        
+                        fluidRow(column(12, br()))
                         )
                
                ########### MST ########### 

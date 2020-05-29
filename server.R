@@ -12,6 +12,7 @@ shinyServer(function(input,output,session){
                            uni = NULL,
                            uniframe = NULL,
                            fulldata = NULL,
+                           filterdata = NULL,
                            createGraph = TRUE)
   
   shinyFileChoose(input, "files", roots = c(root = '.'), filetypes = c('', "txt", "csv"))
@@ -26,6 +27,7 @@ shinyServer(function(input,output,session){
     values$indexes = 1:nrow(data)
     values$uni = NULL
     values$fulldata = data
+    values$filterdata = data
     data
   })
   
@@ -89,9 +91,10 @@ shinyServer(function(input,output,session){
     }
   
     values$fulldata = data
+    values$filterdata = data
     
     sim = stringdistances(seq, algo = input$simSelect)
-    sim[sim == 0] = 0.00001
+    # sim[sim == 0] = 0.00001
     values$sim = sim
     shinyalert("Distances Calculated", type = "success")
   })
@@ -153,8 +156,8 @@ shinyServer(function(input,output,session){
     # V(ig)$J.GENE = as.character(unlist(lapply(strsplit(as.character(V(ig)$Summary.J.GENE.and.allele), "*", fixed=TRUE), myFun)))
     # V(ig)$D.GENE = as.character(unlist(lapply(strsplit(as.character(V(ig)$Summary.D.GENE.and.allele), "*", fixed=TRUE), myFun)))
 
-    V(ig)$color.background =  colors[visualiseGenes(data = V(ig)$Sample_ID)$label]
-    V(ig)$color.border = V(ig)$color.background
+    # V(ig)$color.background =  colors[visualiseGenes(data = V(ig)$Sample_ID)$label]
+    # V(ig)$color.border = V(ig)$color.background
     ###### NP ######
     # V(ig)$title = paste("Sequence frequence cluster_id: ", V(ig)$freq_cluster_id)
     
@@ -169,23 +172,23 @@ shinyServer(function(input,output,session){
     
     V(ig)$id = 1:gorder(ig)
     V(ig)$label = rownames(templist[[1]])
-    forest = components(ig, mode="weak")
+    # forest = components(ig, mode="weak")
     
-    x = forest[[1]]
-    y = table(x)
-    z = y[match(x, names(y))]
-    x[z < 15] = NA
-    uni = cbind(unique(x), y[unique(x)])
+    # x = forest[[1]]
+    # y = table(x)
+    # z = y[match(x, names(y))]
+    # x[z < 15] = NA
+    # uni = cbind(unique(x), y[unique(x)])
     
-    x = match(x, sort(unique(x), na.last = TRUE))
-    values$forest = x
+    # x = match(x, sort(unique(x), na.last = TRUE))
+    # values$forest = x
     values$ig = ig
     
-    y = table(values$forest)
-    choices = as.numeric(rownames(y))
-    names(choices) = paste("Component" ,rownames(y),", ",y," nodes")
-    names(choices)[length(choices)] = paste(names(choices)[length(choices)]," (Solo Nodes)")
-    updateSelectInput(session, "componentSelect", choices = choices, selected = 1)
+    # y = table(values$forest)
+    # choices = as.numeric(rownames(y))
+    # names(choices) = paste("Component" ,rownames(y),", ",y," nodes")
+    # names(choices)[length(choices)] = paste(names(choices)[length(choices)]," (Solo Nodes)")
+    # updateSelectInput(session, "componentSelect", choices = choices, selected = 1)
     # clusterValues$member = NULL
     # clusterValues$membership = vector(mode="list",length=7)
     # clusterValues$comm1 = NULL
@@ -201,35 +204,36 @@ shinyServer(function(input,output,session){
     # 
     # updateSelectInput(session, "clusterSelect", selected=" ")
     # mstValues$edges = NULL
+    
+      values$sub.ig = values$ig # induced_subgraph(values$ig, which(values$forest == input$componentSelect), impl = "auto")
+      V(values$sub.ig)$id = 1:gorder(values$sub.ig)
+      
+      shinyalert("Graph created", type = "success")
   })
 
-  observeEvent(input$componentButton, {
-    if(is.null(values$ig)) { return() }
-    
-    print(values$forest)
-    print(input$componentSelect)
-    
-    
-    values$sub.ig = induced_subgraph(values$ig, which(values$forest == input$componentSelect), impl = "auto")
-    V(values$sub.ig)$id = 1:gorder(values$sub.ig)
-    # values$forest = c()
-    # values$forest[1:gorder(values$ig)] = 1
-    # updateSelectInput(session, "componentSelect", choices = list("1" = 1), selected = 1)
-    # clusterValues$member = NULL
-    # clusterValues$membership = vector(mode = "list", length = 7)
-    # clusterValues$comm1 = NULL
-    # clusterValues$comm2 = NULL
-    # names(clusterValues$membership) = c("louvain",
-    #                                     "fast_greedy",
-    #                                     "label_propagation",
-    #                                     "leading_eigenvalue",
-    #                                     "walktrap",
-    #                                     "edge_betweenness",
-    #                                     "hierarchical")
-    # 
-    # updateSelectInput(session, "clusterSelect", selected=" ")
-    # mstValues$edges = NULL
-  })
+  # observeEvent(input$componentButton, {
+  #   if(is.null(values$ig)) { return() }
+  #   
+  #   values$sub.ig = values$ig # induced_subgraph(values$ig, which(values$forest == input$componentSelect), impl = "auto")
+  #   V(values$sub.ig)$id = 1:gorder(values$sub.ig)
+  #   # values$forest = c()
+  #   # values$forest[1:gorder(values$ig)] = 1
+  #   # updateSelectInput(session, "componentSelect", choices = list("1" = 1), selected = 1)
+  #   # clusterValues$member = NULL
+  #   # clusterValues$membership = vector(mode = "list", length = 7)
+  #   # clusterValues$comm1 = NULL
+  #   # clusterValues$comm2 = NULL
+  #   # names(clusterValues$membership) = c("louvain",
+  #   #                                     "fast_greedy",
+  #   #                                     "label_propagation",
+  #   #                                     "leading_eigenvalue",
+  #   #                                     "walktrap",
+  #   #                                     "edge_betweenness",
+  #   #                                     "hierarchical")
+  #   # 
+  #   # updateSelectInput(session, "clusterSelect", selected=" ")
+  #   # mstValues$edges = NULL
+  # })
   
   observeEvent(values$sub.ig,{
     output$graphMeasure <- renderText(paste("Order:", gorder(values$sub.ig),
@@ -344,6 +348,11 @@ shinyServer(function(input,output,session){
     temp
   })
   
+  output$filteredDataset <- DT::renderDataTable({
+    temp = values$filterdata
+    temp
+  })
+  
   output$adj <- DT::renderDataTable({
     
     igtemp = values$sub.ig
@@ -373,7 +382,7 @@ shinyServer(function(input,output,session){
     coords = layout_with_stress(igtemp)
     
     # there was a "value" variable 
-    data_vertices = get.data.frame(igtemp, what = c("vertices"))[,c("label", "color.border", "color.background", "id")]
+    data_vertices = get.data.frame(igtemp, what = c("vertices"))[,c("label", "id")]
     data_edges = get.data.frame(igtemp, what = c("edges"))
     
     graph = visNetwork(data_vertices, data_edges) %>%
@@ -410,19 +419,15 @@ shinyServer(function(input,output,session){
     selected = input$select1
     if (is.null(selected)) {return()}
     if (is.numeric(tempdata[,selected])){
-      # sliderInput("slider1", label = "", 
-      #             min = 0, 
-      #             max = 100, 
-      #             value = c(0, 100),
-      #             step = 0.1)
-      fluidRow(
-        column(6, numericInput("minSelected", "Min value", value = min(tempdata[,selected]), min = 0, max = 100, step = 0.005)),
-        column(6, numericInput("maxSelected", "Max value", value = max(tempdata[,selected]), min = 0, max = 100, step = 0.005))
-      )
+      
+     div( 
+        column(5, numericInput("minSelected", "Min value", value = floor(min(tempdata[,selected])), min = 0, max = 100, step = 0.005)),
+        column(5, numericInput("maxSelected", "Max value", value = ceiling(max(tempdata[,selected])), min = 0, max = 100, step = 0.005))
+        )
+
+               
     } else {
-      fluidRow(
-        column(12, textInput("text1", ""))
-      )
+      column(12, textInput("text1", "Pattern"))
     }
   }) 
 
@@ -432,6 +437,7 @@ shinyServer(function(input,output,session){
 
   output$Indexes <- renderText({
     if(is.null(values$indexes)) {return()}
+    values$filterdata = values$fulldata[values$indexes,]
     values$indexes
   })
 
@@ -482,6 +488,15 @@ shinyServer(function(input,output,session){
     },
     content = function(file) {
       write.table(values$fulldata, file, row.names = FALSE, sep = "\t", quote = FALSE)
+    }
+  )
+  
+  output$downloadFilteredData <- downloadHandler(
+    filename = function() {
+      paste("filtered_data.txt")
+    },
+    content = function(file) {
+      write.table(values$filterdata, file, row.names = FALSE, sep = "\t", quote = FALSE)
     }
   )
   

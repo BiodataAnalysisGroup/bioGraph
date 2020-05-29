@@ -4,7 +4,9 @@ stringdistances <- function(seq, algo){
   if(algo == "BLOSUM80"){
     sim = stringDist(seq, method = "substitutionMatrix", substitutionMatrix = "BLOSUM80")
     sim = sim + abs(min(sim))
-  }else{
+  } else if(algo == "LetterProb") {
+    sim = letter.prob(seq)
+  } else {
     sim = stringdistmatrix(seq, method = algo, useBytes = FALSE, q = 2)
   }
   
@@ -18,6 +20,8 @@ stringdistances <- function(seq, algo){
     lengths = nchar(as.character(seq))
     normal = as.vector(combn(lengths, 2, FUN = funn))
     sim = sim / normal
+    
+    as.matrix(sim)
   }
   
   return(sim)
@@ -55,7 +59,7 @@ subtractDatasets <- function(minuend,subtracter){
   return(minuend)
 }
 
-############ includeInGraph ############
+############ include in graph ############
 
 includeInGraph <- function(data, x){
   
@@ -64,7 +68,14 @@ includeInGraph <- function(data, x){
   for(l in x){
     tempdata = c()
     if(!is.numeric(data[,l[1]])){
-      tempdata = data[data[,l[1]] %in% l[2:length(l)],]
+      
+      if(str_detect(l[2:length(l)], ";")){
+        tempdata = find.motifs(data = data[,l[1]], motifs = l[2:length(l)])
+        tempdata = data[tempdata, ]
+      } else {
+        tempdata = data[data[,l[1]] %in% l[2:length(l)],]
+      }
+      
     } else {
       tempdata = data[which(data[,l[1]] >= as.numeric(l[2]) & data[,l[1]] <= as.numeric(l[3])),]
     } 
@@ -303,5 +314,46 @@ letter.prob <- function(seq.vector){
   
   colnames(seq.prob) = as.character(1:ncol(seq.prob))
   
+  seq.prob = seq.prob / max(seq.prob)
+  
   return(seq.prob)
+}
+
+############ find motifs ############ 
+
+find.motifs <- function(data, motifs){
+  
+  library(data.table)
+  library(stringr)
+  
+  ids = c()
+  
+  total = data.table(index = 1:length(data), sequence = data)
+  
+  motifs = unlist(str_split(motifs, ";"))
+  motifs = motifs[which(motifs != "")]
+  
+  gap.loc = str_locate_all(motifs, '_')
+  
+  first.motifs = str_split(motifs, "_")
+  
+  for(i in 1:length(motifs)){
+    first.motif = first.motifs[[i]][1]
+    
+    temp = total[which(str_detect(total$sequence, first.motif)), ]
+    
+    trans = str_locate(temp$sequence, first.motif)[,1]
+    
+    for(j in 1:nrow(gap.loc[[i]])){
+      str_sub(temp$sequence, start = trans - 1 + gap.loc[[i]][j, 1], end = trans - 1 + gap.loc[[i]][j, 1]) = "_"
+    }
+    
+    ids = c(ids, temp[which(str_detect(temp$sequence, motifs[i])), ]$index)
+  }
+  
+  ids = unique(ids)
+  ids = ids[order(ids)]
+  
+  return(ids)
+  
 }
